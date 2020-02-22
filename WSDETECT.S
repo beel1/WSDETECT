@@ -14,6 +14,7 @@
 *
 
 * uncomment to compile to WSDETECT.BIN for writing to boot sector
+* (untested)
 *__BOOTSECTOR
 
 * uncomment to only open right border - useful when aligning code 
@@ -238,8 +239,11 @@ _detect_ws
 	lsl.w #8,d4
 	or.b d5,d4
 
+	move.w d4,d6
+
 	sub.w d2,d4
 
+	ifnd __BOOTSECTOR
 	lea _ws(pc),a0
 	cmp.w #54,d4
 	beq.s .ws2
@@ -270,12 +274,52 @@ _detect_ws
 	move.l #' STE',(a0)
 *	bra.s .done
 .done
+	endc
+
+*	move.w #$09AF,d6 * test vector of display routine
+
+	lea _wsend(pc),a0
+	jsr _d6w_in_ascii
+	jsr _d6w_in_ascii
+	jsr _d6w_in_ascii
+	jsr _d6w_in_ascii
+
+	lea _wstart(pc),a0
+	move.w d2,d6
+	jsr _d6w_in_ascii
+	jsr _d6w_in_ascii
+	jsr _d6w_in_ascii
+	jsr _d6w_in_ascii
+
+	lea _wdiff(pc),a0
+	move.w d4,d6
+	jsr _d6w_in_ascii
+	jsr _d6w_in_ascii
+	jsr _d6w_in_ascii
+	jsr _d6w_in_ascii
+
 	movem.l (sp)+,a0-a1/d0-d7
 	move.w #$2300,sr
+	rts
+
+* Converts a nibble at each execution
+_d6w_in_ascii
+	move.b d6,d5
+	and.b #15,d5
+	add.b #'0',d5
+	cmp.b #'9',d5
+	ble.s .over9
+	add.b #'A'-'9'-1,d5	* Displays 'A' to 'F'
+.over9
+	move.b d5,-(a0)
+	ror.w #4,d6
 	rts
 
 	even
 *	ds.b 1	* to align _ws on even boundary
 
 _info	dc.b $d,$a,27,'p',' Wakestate detection v1.0 by Troed/SYNC ',27,'q',$d,$a 
-_ws	dc.b ' WS? detected',$d,$a,0
+_ws	dc.b ' WS? (0xd4d5'
+_wsend  dc.b ' - 0xd2d3'
+_wstart dc.b ' = 0xzzzz'
+_wdiff  dc.b ')',$d,$a,0
